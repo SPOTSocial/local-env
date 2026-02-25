@@ -42,14 +42,14 @@ services:
 
   spot-backend:
     build:
-      context: ../spot-backend
+      context: ./spot-backend
       dockerfile: Dockerfile
     command: >
       sh -c "cd /usr/src/spot/spot &&
              python manage.py migrate --noinput &&
              python manage.py runserver 0.0.0.0:8001"
     volumes:
-      - ../spot-backend:/usr/src/spot
+      - ./spot-backend:/usr/src/spot
     ports:
       - "8001:8001"
     environment:
@@ -73,11 +73,11 @@ services:
 
   console-backend:
     build:
-      context: ../console-backend
+      context: ./console-backend
       dockerfile: Dockerfile
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ../console-backend:/app
+      - ./console-backend:/app
     ports:
       - "8000:8000"
     environment:
@@ -98,10 +98,10 @@ services:
 
   console-frontend:
     build:
-      context: ../console-frontend
-      dockerfile: ../local-env/dockerfiles/next.Dockerfile
+      context: ./console-frontend
+      dockerfile: ../dockerfiles/next.Dockerfile
     volumes:
-      - ../console-frontend:/app
+      - ./console-frontend:/app
       - console_frontend_node_modules:/app/node_modules
     ports:
       - "3000:3000"
@@ -113,10 +113,10 @@ services:
 
   spot-web:
     build:
-      context: ../spot-web
-      dockerfile: ../local-env/dockerfiles/next.Dockerfile
+      context: ./spot-web
+      dockerfile: ../dockerfiles/next.Dockerfile
     volumes:
-      - ../spot-web:/app
+      - ./spot-web:/app
       - spot_web_node_modules:/app/node_modules
     ports:
       - "3001:3000"
