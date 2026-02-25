@@ -1,0 +1,131 @@
+services:
+  # ── Databases ──
+
+  spot-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${SPOT_DB_NAME:-spotdb}
+      POSTGRES_USER: ${SPOT_DB_USER:-spot}
+      POSTGRES_PASSWORD: ${SPOT_DB_PASS:-spot}
+    volumes:
+      - spot_pg_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SPOT_DB_USER:-spot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  spot-memcached:
+    image: memcached:1.6-alpine
+    ports:
+      - "11211:11211"
+
+  console-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${CONSOLE_DB_NAME:-console}
+      POSTGRES_USER: ${CONSOLE_DB_USER:-console}
+      POSTGRES_PASSWORD: ${CONSOLE_DB_PASSWORD:-console}
+    volumes:
+      - console_pg_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CONSOLE_DB_USER:-console}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Backends ──
+
+  spot-backend:
+    build:
+      context: ../spot-backend
+      dockerfile: Dockerfile
+    command: >
+      sh -c "cd /usr/src/spot/spot &&
+             python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8001"
+    volumes:
+      - ../spot-backend:/usr/src/spot
+    ports:
+      - "8001:8001"
+    environment:
+      ENV: ${SPOT_ENV:-dev}
+      DEBUG: ${SPOT_DEBUG:-1}
+      SECRET_KEY: ${SPOT_SECRET_KEY:-django-dev-secret-key}
+      ALLOWED_HOSTS: ${SPOT_ALLOWED_HOSTS:-*}
+      DB_ENGINE: ${SPOT_DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${SPOT_DB_NAME:-spotdb}
+      DB_USER: ${SPOT_DB_USER:-spot}
+      DB_PASS: ${SPOT_DB_PASS:-spot}
+      DB_HOST: spot-db
+      DB_PORT: "5432"
+      MEMCACHED_LOCATION: spot-memcached:11211
+    depends_on:
+      spot-db:
+        condition: service_healthy
+      spot-memcached:
+        condition: service_started
+    restart: unless-stopped
+
+  console-backend:
+    build:
+      context: ../console-backend
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ../console-backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DB_NAME: ${CONSOLE_DB_NAME:-console}
+      DB_USER: ${CONSOLE_DB_USER:-console}
+      DB_PASSWORD: ${CONSOLE_DB_PASSWORD:-console}
+      DB_HOST: console-db
+      DB_PORT: "5432"
+      SECRET_KEY: ${CONSOLE_SECRET_KEY:-django-console-dev-secret-key}
+      DEBUG: "True"
+      ALLOWED_HOSTS: "*"
+    depends_on:
+      console-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontends ──
+
+  console-frontend:
+    build:
+      context: ../console-frontend
+      dockerfile: ../local-env/dockerfiles/next.Dockerfile
+    volumes:
+      - ../console-frontend:/app
+      - console_frontend_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - console-backend
+    restart: unless-stopped
+
+  spot-web:
+    build:
+      context: ../spot-web
+      dockerfile: ../local-env/dockerfiles/next.Dockerfile
+    volumes:
+      - ../spot-web:/app
+      - spot_web_node_modules:/app/node_modules
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: "3000"
+    restart: unless-stopped
+
+volumes:
+  spot_pg_data:
+  console_pg_data:
+  console_frontend_node_modules:
+  spot_web_node_modules:
