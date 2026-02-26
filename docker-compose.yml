@@ -12,7 +12,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SPOT_DB_USER:-spot}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SPOT_DB_USER:-spot} -d ${SPOT_DB_NAME:-spotdb}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -79,7 +79,7 @@ services:
     volumes:
       - ./console-backend:/app
     ports:
-      - "8000:8000"
+      - "8002:8000"
     environment:
       DB_NAME: ${CONSOLE_DB_NAME:-console}
       DB_USER: ${CONSOLE_DB_USER:-console}
@@ -107,6 +107,8 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      NPM_CONFIG_STRICT_SSL: "false"
     depends_on:
       - console-backend
     restart: unless-stopped
@@ -122,6 +124,8 @@ services:
       - "3001:3000"
     environment:
       PORT: "3000"
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      NPM_CONFIG_STRICT_SSL: "false"
     restart: unless-stopped
 
 volumes:
