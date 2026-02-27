@@ -16,11 +16,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
   spot-memcached:
     image: memcached:1.6-alpine
     ports:
       - "11211:11211"
+    restart: unless-stopped
 
   console-db:
     image: postgres:15-alpine
@@ -37,6 +39,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
   # ── Backends ──
 
