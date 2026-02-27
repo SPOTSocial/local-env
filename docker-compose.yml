@@ -24,6 +24,19 @@ services:
       - "11211:11211"
     restart: unless-stopped
 
+  spot-localstack:
+    image: localstack/localstack:3.8
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: ${SPOT_AWS_REGION:-us-east-1}
+      DEBUG: ${SPOT_LOCALSTACK_DEBUG:-0}
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack/init:/etc/localstack/init
+      - spot_localstack_data:/var/lib/localstack
+    restart: unless-stopped
+
   console-db:
     image: postgres:15-alpine
     environment:
@@ -58,6 +71,7 @@ services:
     environment:
       ENV: ${SPOT_ENV:-dev}
       DEBUG: ${SPOT_DEBUG:-1}
+      PYTHONUNBUFFERED: "1"
       SECRET_KEY: ${SPOT_SECRET_KEY:-django-dev-secret-key}
       ALLOWED_HOSTS: ${SPOT_ALLOWED_HOSTS:-*}
       DB_ENGINE: ${SPOT_DB_ENGINE:-django.db.backends.postgresql}
@@ -67,10 +81,24 @@ services:
       DB_HOST: spot-db
       DB_PORT: "5432"
       MEMCACHED_LOCATION: spot-memcached:11211
+      SKIP_FIREBASE: ${SPOT_SKIP_FIREBASE:-0}
+      USE_S3: ${SPOT_USE_S3:-1}
+      AWS_ACCESS_KEY_ID: ${SPOT_AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${SPOT_AWS_SECRET_ACCESS_KEY:-test}
+      AWS_STORAGE_BUCKET_NAME: ${SPOT_AWS_BUCKET_NAME:-spot-media-local}
+      AWS_S3_ENDPOINT_URL: ${SPOT_AWS_S3_ENDPOINT_URL:-http://spot-localstack:4566}
+      AWS_S3_REGION_NAME: ${SPOT_AWS_REGION:-us-east-1}
+      AWS_S3_ADDRESSING_STYLE: ${SPOT_AWS_S3_ADDRESSING_STYLE:-path}
+      AWS_S3_SIGNATURE_VERSION: ${SPOT_AWS_S3_SIGNATURE_VERSION:-s3v4}
+      AWS_S3_USE_SSL: "0"
+      AWS_S3_VERIFY: "0"
+      AWS_QUERYSTRING_AUTH: "0"
     depends_on:
       spot-db:
         condition: service_healthy
       spot-memcached:
+        condition: service_started
+      spot-localstack:
         condition: service_started
     restart: unless-stopped
 
@@ -103,6 +131,8 @@ services:
     build:
       context: ./console-frontend
       dockerfile: ../dockerfiles/next.Dockerfile
+    command: >
+      sh -c "npm ci && npm run dev"
     volumes:
       - ./console-frontend:/app
       - console_frontend_node_modules:/app/node_modules
@@ -120,6 +150,8 @@ services:
     build:
       context: ./spot-web
       dockerfile: ../dockerfiles/next.Dockerfile
+    command: >
+      sh -c "npm ci && npm run dev"
     volumes:
       - ./spot-web:/app
       - spot_web_node_modules:/app/node_modules
@@ -136,3 +168,4 @@ volumes:
   console_pg_data:
   console_frontend_node_modules:
   spot_web_node_modules:
+  spot_localstack_data:
