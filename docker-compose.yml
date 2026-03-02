@@ -16,6 +16,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   spot-memcached:
@@ -61,7 +62,8 @@ services:
       context: ./spot-backend
       dockerfile: Dockerfile
     command: >
-      sh -c "cd /usr/src/spot/spot &&
+      sh -c "python /usr/src/spot/scripts/repair_migration_history.py &&
+             cd /usr/src/spot/spot &&
              python manage.py migrate --noinput &&
              python manage.py runserver 0.0.0.0:8001"
     volumes:
@@ -72,6 +74,7 @@ services:
       ENV: ${SPOT_ENV:-dev}
       DEBUG: ${SPOT_DEBUG:-1}
       PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /usr/src/spot/spot:/usr/src/spot
       SECRET_KEY: ${SPOT_SECRET_KEY:-django-dev-secret-key}
       ALLOWED_HOSTS: ${SPOT_ALLOWED_HOSTS:-*}
       DB_ENGINE: ${SPOT_DB_ENGINE:-django.db.backends.postgresql}
@@ -80,8 +83,14 @@ services:
       DB_PASS: ${SPOT_DB_PASS:-spot}
       DB_HOST: spot-db
       DB_PORT: "5432"
+      NAME: ${SPOT_DB_NAME:-spotdb}
+      USER: ${SPOT_DB_USER:-spot}
+      PASSWORD: ${SPOT_DB_PASS:-spot}
+      HOST: spot-db
+      PORT: "5432"
       MEMCACHED_LOCATION: spot-memcached:11211
       SKIP_FIREBASE: ${SPOT_SKIP_FIREBASE:-0}
+      ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE: ${SPOT_ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE:-1}
       USE_S3: ${SPOT_USE_S3:-1}
       AWS_ACCESS_KEY_ID: ${SPOT_AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${SPOT_AWS_SECRET_ACCESS_KEY:-test}
