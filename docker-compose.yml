@@ -19,10 +19,15 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  spot-memcached:
-    image: memcached:1.6-alpine
+  spot-redis:
+    image: redis:7-alpine
     ports:
-      - "11211:11211"
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   spot-localstack:
@@ -65,6 +70,7 @@ services:
       sh -c "python /usr/src/spot/scripts/repair_migration_history.py &&
              cd /usr/src/spot/spot &&
              python manage.py migrate --noinput &&
+             python manage.py loaddata gender --verbosity 0 &&
              python manage.py runserver 0.0.0.0:8001"
     volumes:
       - ./spot-backend:/usr/src/spot
@@ -83,15 +89,17 @@ services:
       DB_PASS: ${SPOT_DB_PASS:-spot}
       DB_HOST: spot-db
       DB_PORT: "5432"
+      REDIS_URL: ${SPOT_REDIS_URL:-redis://spot-redis:6379/0}
+      CELERY_BROKER_URL: ${SPOT_CELERY_BROKER_URL:-redis://spot-redis:6379/0}
+      CELERY_RESULT_BACKEND: ${SPOT_CELERY_RESULT_BACKEND:-redis://spot-redis:6379/0}
       NAME: ${SPOT_DB_NAME:-spotdb}
       USER: ${SPOT_DB_USER:-spot}
       PASSWORD: ${SPOT_DB_PASS:-spot}
       HOST: spot-db
       PORT: "5432"
-      MEMCACHED_LOCATION: spot-memcached:11211
       SKIP_FIREBASE: ${SPOT_SKIP_FIREBASE:-0}
       ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE: ${SPOT_ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE:-1}
-      USE_S3: ${SPOT_USE_S3:-1}
+      USE_S3: ${SPOT_USE_S3:-0}
       AWS_ACCESS_KEY_ID: ${SPOT_AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${SPOT_AWS_SECRET_ACCESS_KEY:-test}
       AWS_STORAGE_BUCKET_NAME: ${SPOT_AWS_BUCKET_NAME:-spot-media-local}
@@ -105,8 +113,8 @@ services:
     depends_on:
       spot-db:
         condition: service_healthy
-      spot-memcached:
-        condition: service_started
+      spot-redis:
+        condition: service_healthy
       spot-localstack:
         condition: service_started
     restart: unless-stopped
