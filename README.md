@@ -43,9 +43,22 @@ docker compose down
 ## Services
 
 - **spot-db** — Postgres 15 for spot-backend (port 5433)
-- **spot-memcached** — Memcached for spot-backend (port 11211)
+- **spot-redis** — Redis for spot-backend cache/channels/celery (port 6380)
 - **spot-backend** — Django API (port 8001)
 - **console-db** — Postgres 15 for console-backend (port 5434)
 - **console-backend** — Django API (port 8000)
 - **console-frontend** — Next.js dev server (port 3000)
 - **spot-web** — Next.js dev server (port 3001)
+
+## Dev Phone Verification Bypass
+
+For local development, backend auth can accept any 6-digit verification code if this env var is enabled:
+
+- `SPOT_ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE=1`
+
+When enabled, `/api/v1/auth/` will accept requests with:
+
+- `phone` (or `phoneNumber`)
+- `code` (or `verificationCode`/`smsCode`/`otp`) set to any 6 digits
+
+This bypass is intended only for local/dev environments.
