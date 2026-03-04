@@ -61,11 +61,10 @@ services:
       context: ./spot-backend
       dockerfile: Dockerfile
     command: >
-      sh -c "cd /usr/src/spot/spot &&
-             python manage.py migrate --noinput &&
+      sh -c "cd /app/spot &&
              python manage.py runserver 0.0.0.0:8001"
     volumes:
-      - ./spot-backend:/usr/src/spot
+      - ./spot-backend:/app
     ports:
       - "8001:8001"
     environment:
@@ -74,6 +73,10 @@ services:
       PYTHONUNBUFFERED: "1"
       SECRET_KEY: ${SPOT_SECRET_KEY:-django-dev-secret-key}
       ALLOWED_HOSTS: ${SPOT_ALLOWED_HOSTS:-*}
+      NAME: ${SPOT_DB_NAME:-spotdb}
+      USER: ${SPOT_DB_USER:-spot}
+      PASSWORD: ${SPOT_DB_PASS:-spot}
+      HOST: spot-db
       DB_ENGINE: ${SPOT_DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${SPOT_DB_NAME:-spotdb}
       DB_USER: ${SPOT_DB_USER:-spot}
@@ -82,7 +85,12 @@ services:
       DB_PORT: "5432"
       MEMCACHED_LOCATION: spot-memcached:11211
       SKIP_FIREBASE: ${SPOT_SKIP_FIREBASE:-0}
-      USE_S3: ${SPOT_USE_S3:-1}
+      ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE: ${SPOT_ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE:-1}
+      CONTACT_CONNECTION_POLLING_ENABLED: ${SPOT_CONTACT_CONNECTION_POLLING_ENABLED:-1}
+      CONTACT_CONNECTION_POLL_BATCH_SIZE: ${SPOT_CONTACT_CONNECTION_POLL_BATCH_SIZE:-500}
+      CONTACT_CONNECTION_POLL_MAX_SNAPSHOT_AGE_HOURS: ${SPOT_CONTACT_CONNECTION_POLL_MAX_SNAPSHOT_AGE_HOURS:-0}
+      CELERY_BEAT_POLL_CONTACT_CONNECTION_UPDATES: ${SPOT_CELERY_BEAT_POLL_CONTACT_CONNECTION_UPDATES:-120}
+      USE_S3: ${SPOT_USE_S3:-0}
       AWS_ACCESS_KEY_ID: ${SPOT_AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${SPOT_AWS_SECRET_ACCESS_KEY:-test}
       AWS_STORAGE_BUCKET_NAME: ${SPOT_AWS_BUCKET_NAME:-spot-media-local}
@@ -161,6 +169,31 @@ services:
       PORT: "3000"
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
       NPM_CONFIG_STRICT_SSL: "false"
+    restart: unless-stopped
+
+  # ── Admin UI (FastAPI) ──
+
+  spot-admin:
+    image: python:3.12-slim
+    working_dir: /app
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload"
+    volumes:
+      - ../Admin-Dashboard:/app
+    environment:
+      DATABASE_URL: ${SPOT_ADMIN_DATABASE_URL:-postgresql+psycopg://${SPOT_DB_USER:-spot}:${SPOT_DB_PASS:-spot}@spot-db:5432/${SPOT_DB_NAME:-spotdb}}
+      SPOT_BACKEND_PATH: /spot-backend
+      USER_TABLE: ${SPOT_ADMIN_USER_TABLE:-auth_user}
+      PROFILE_TABLE: ${SPOT_ADMIN_PROFILE_TABLE:-profile}
+      PROFILE_CONNECTION_TABLE: ${SPOT_ADMIN_PROFILE_CONNECTION_TABLE:-profile_connection}
+    ports:
+      - "8003:8003"
+    depends_on:
+      spot-db:
+        condition: service_healthy
+      spot-backend:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
