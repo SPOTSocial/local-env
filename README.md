@@ -43,7 +43,7 @@ docker compose down
 ## Services
 
 - **spot-db** — Postgres 15 for spot-backend (port 5433)
-- **spot-memcached** — Memcached for spot-backend (port 11211)
+- **spot-redis** — Redis for spot-backend cache/channels/celery (port 6380)
 - **spot-backend** — Django API (port 8001)
 - **console-db** — Postgres 15 for console-backend (port 5434)
 - **console-backend** — Django API (port 8000)

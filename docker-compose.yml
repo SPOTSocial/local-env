@@ -16,12 +16,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
 
-  spot-memcached:
-    image: memcached:1.6-alpine
+  spot-redis:
+    image: redis:7-alpine
     ports:
-      - "11211:11211"
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   spot-localstack:
@@ -71,6 +77,7 @@ services:
       ENV: ${SPOT_ENV:-dev}
       DEBUG: ${SPOT_DEBUG:-1}
       PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /usr/src/spot/spot:/usr/src/spot
       SECRET_KEY: ${SPOT_SECRET_KEY:-django-dev-secret-key}
       ALLOWED_HOSTS: ${SPOT_ALLOWED_HOSTS:-*}
       NAME: ${SPOT_DB_NAME:-spotdb}
@@ -83,7 +90,14 @@ services:
       DB_PASS: ${SPOT_DB_PASS:-spot}
       DB_HOST: spot-db
       DB_PORT: "5432"
-      MEMCACHED_LOCATION: spot-memcached:11211
+      REDIS_URL: ${SPOT_REDIS_URL:-redis://spot-redis:6379/0}
+      CELERY_BROKER_URL: ${SPOT_CELERY_BROKER_URL:-redis://spot-redis:6379/0}
+      CELERY_RESULT_BACKEND: ${SPOT_CELERY_RESULT_BACKEND:-redis://spot-redis:6379/0}
+      NAME: ${SPOT_DB_NAME:-spotdb}
+      USER: ${SPOT_DB_USER:-spot}
+      PASSWORD: ${SPOT_DB_PASS:-spot}
+      HOST: spot-db
+      PORT: "5432"
       SKIP_FIREBASE: ${SPOT_SKIP_FIREBASE:-0}
       ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE: ${SPOT_ALLOW_ANY_6_DIGIT_PHONE_VERIFICATION_CODE:-1}
       CONTACT_CONNECTION_POLLING_ENABLED: ${SPOT_CONTACT_CONNECTION_POLLING_ENABLED:-1}
@@ -104,8 +118,8 @@ services:
     depends_on:
       spot-db:
         condition: service_healthy
-      spot-memcached:
-        condition: service_started
+      spot-redis:
+        condition: service_healthy
       spot-localstack:
         condition: service_started
     restart: unless-stopped
